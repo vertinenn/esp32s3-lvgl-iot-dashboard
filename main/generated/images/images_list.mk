@@ -1,0 +1,1 @@
+GEN_CSRCS += _sun_alpha_32x32.c _wifi_alpha_32x32.c _tem_alpha_32x32.c _locate_alpha_32x32.c
