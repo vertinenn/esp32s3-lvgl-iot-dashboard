@@ -29,3 +29,4 @@ CONFIG_LV_FS_POSIX_CACHE_SIZE=0
 # Enable FATFS long file name support (needed for names like frame_0001.jpg)
 CONFIG_FATFS_LFN_HEAP=y
 CONFIG_FATFS_MAX_LFN=255
+CONFIG_LV_USE_GIF=y

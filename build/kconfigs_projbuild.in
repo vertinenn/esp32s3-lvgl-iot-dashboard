@@ -1,0 +1,6 @@
+source "E:/esp/espv5.5.1/esp/v5.5.1/esp-idf/components/bootloader/Kconfig.projbuild"
+source "E:/esp/espv5.5.1/esp/v5.5.1/esp-idf/components/esp_app_format/Kconfig.projbuild"
+source "E:/esp/espv5.5.1/esp/v5.5.1/esp-idf/components/esp_rom/Kconfig.projbuild"
+source "E:/esp/espv5.5.1/esp/v5.5.1/esp-idf/components/esptool_py/Kconfig.projbuild"
+source "E:/esp/espv5.5.1/esp/v5.5.1/esp-idf/components/partition_table/Kconfig.projbuild"
+source "E:/esp32-s3/esp32s3-lvgl-iot-dashboard/managed_components/espressif__esp-sr/Kconfig.projbuild"

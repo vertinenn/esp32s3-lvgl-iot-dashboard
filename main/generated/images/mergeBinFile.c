@@ -11,8 +11,8 @@
 
 #if LV_USE_FS_RAWFS
 
-const rawfs_size_t rawfs_file_count = 17;
-rawfs_file_t rawfs_files[17] = {
+const rawfs_size_t rawfs_file_count = 18;
+rawfs_file_t rawfs_files[18] = {
 	0x0, 0, 230404, "/heiji7.bin",
 	0x38404, 0, 230404, "/heiji5.bin",
 	0x70808, 0, 9079, "/heiji3.bin",
@@ -28,8 +28,9 @@ rawfs_file_t rawfs_files[17] = {
 	0x86aae, 0, 9079, "/heiji1.bin",
 	0x88e25, 0, 9079, "/heiji1.bin",
 	0x8b19c, 0, 230404, "/heiji8.bin",
-	0xc35a0, 0, 230404, "/heiji9.bin",
-	0xfb9a4, 0, 230404, "/heiji10.bin",
+	0xc35a0, 0, 9079, "/heiji1.bin",
+	0xc5917, 0, 230404, "/heiji9.bin",
+	0xfdd1b, 0, 230404, "/heiji10.bin",
 
 };
 

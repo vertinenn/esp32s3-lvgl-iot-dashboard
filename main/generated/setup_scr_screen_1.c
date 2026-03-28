@@ -68,7 +68,7 @@ void setup_scr_screen_1(lv_ui *ui)
     lv_label_set_long_mode(ui->screen_1_imgbtn_1_label, LV_LABEL_LONG_WRAP);
     lv_obj_align(ui->screen_1_imgbtn_1_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_pad_all(ui->screen_1_imgbtn_1, 0, LV_STATE_DEFAULT);
-    lv_obj_set_pos(ui->screen_1_imgbtn_1, 13, 182);
+    lv_obj_set_pos(ui->screen_1_imgbtn_1, 14, 182);
     lv_obj_set_size(ui->screen_1_imgbtn_1, 55, 55);
 
     //Write style for screen_1_imgbtn_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.

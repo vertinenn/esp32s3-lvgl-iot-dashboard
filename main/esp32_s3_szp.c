@@ -1,5 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 #include "esp32_s3_szp.h"
+#include "esp_heap_caps.h"
 
 
 static const char *TAG = "esp32_s3_szp";
@@ -665,6 +669,7 @@ esp_codec_dev_handle_t bsp_audio_codec_microphone_init(void)
 
     es7210_codec_cfg_t es7210_cfg = {
         .ctrl_if = i2c_ctrl_if,
+        .mic_selected = BSP_ES7210_MIC_SELECTED,
     };
     const audio_codec_if_t *es7210_dev = es7210_codec_new(&es7210_cfg);
     assert(es7210_dev);
@@ -691,17 +696,17 @@ esp_err_t bsp_codec_set_fs(uint32_t rate, uint32_t bits_cfg, i2s_slot_mode_t ch)
     if (play_dev_handle) {
         ret = esp_codec_dev_close(play_dev_handle);
     }
-    // if (record_dev_handle) {
-    //     ret |= esp_codec_dev_close(record_dev_handle);
-    //     ret |= esp_codec_dev_set_in_gain(record_dev_handle, CODEC_DEFAULT_ADC_VOLUME);
-    // }
+    if (record_dev_handle) {
+        ret |= esp_codec_dev_close(record_dev_handle);
+        ret |= esp_codec_dev_set_in_gain(record_dev_handle, (float)CODEC_DEFAULT_ADC_VOLUME);
+    }
 
     if (play_dev_handle) {
         ret |= esp_codec_dev_open(play_dev_handle, &fs);
     }
-    // if (record_dev_handle) {
-    //     ret |= esp_codec_dev_open(record_dev_handle, &fs);
-    // }
+    if (record_dev_handle) {
+        ret |= esp_codec_dev_open(record_dev_handle, &fs);
+    }
     return ret;
 }
 
@@ -743,6 +748,48 @@ esp_err_t bsp_codec_volume_set(int volume, int *volume_set)
     float v = volume;
     ret = esp_codec_dev_set_out_vol(play_dev_handle, (int)v);
     return ret;
+}
+
+int bsp_get_feed_channel(void)
+{
+    return ADC_I2S_CHANNEL;
+}
+
+esp_err_t bsp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer_len)
+{
+    if (buffer == NULL || buffer_len <= 0 || record_dev_handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const int audio_chunksize = buffer_len / ((int)sizeof(int16_t) * ADC_I2S_CHANNEL);
+    if (audio_chunksize <= 0) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    const int rd = esp_codec_dev_read(record_dev_handle, (void *)buffer, buffer_len);
+
+    if (rd != ESP_CODEC_DEV_OK) {
+        memset(buffer, 0, (size_t)buffer_len);
+        return (esp_err_t)rd;
+    }
+
+    if (!is_get_raw_channel) {
+#if BSP_AFE_PCM_TOTAL_CH == 3
+        for (int i = 0; i < audio_chunksize; i++) {
+            int16_t ref = buffer[4 * i + 0];
+            buffer[3 * i + 0] = buffer[4 * i + 1];
+            buffer[3 * i + 1] = buffer[4 * i + 3];
+            buffer[3 * i + 2] = ref;
+        }
+#elif BSP_AFE_PCM_TOTAL_CH == 2
+        for (int i = 0; i < audio_chunksize; i++) {
+            buffer[2 * i + 0] = buffer[4 * i + BSP_AFE_RAW_MIC_IDX];
+            buffer[2 * i + 1] = buffer[4 * i + BSP_AFE_RAW_REF_IDX];
+        }
+#endif
+    }
+
+    return ESP_OK;
 }
 
 /*********************    音频 ↑   *************************/

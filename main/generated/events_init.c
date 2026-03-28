@@ -12,13 +12,14 @@
 #include "lvgl.h"
 #include "custom.h"
 
+
 #if LV_USE_GUIDER_SIMULATOR && LV_USE_FREEMASTER
 #include "freemaster_client.h"
 #endif
 
 #include"pw.h"
 
-static void screen_btnm_1_event_handler (lv_event_t *e)                             
+static void screen_btnm_1_event_handler (lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     switch (code) {
@@ -96,6 +97,7 @@ void events_init_screen_1 (lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_1, screen_1_gesture_cb, LV_EVENT_GESTURE, NULL);
 
 }
+
 
 static void screen_2_event_handler (lv_event_t *e)
 {

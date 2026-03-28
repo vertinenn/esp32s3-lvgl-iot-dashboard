@@ -21,6 +21,10 @@ lv_obj_t *music_list;
 static lv_obj_t *music_page = NULL;
 static bool s_music_player_inited = false;
 
+lv_obj_t *label_play_pause;
+lv_obj_t *btn_play_pause;
+lv_obj_t *volume_slider;
+
 // 返回当前声音大小
 uint8_t get_sys_volume()
 {
@@ -80,7 +84,7 @@ static esp_err_t _audio_player_std_clock(uint32_t rate, uint32_t bits_cfg, i2s_s
 {
     esp_err_t ret = ESP_OK;
 
-    ret = bsp_codec_set_fs(rate, bits_cfg, ch);
+    // ret = bsp_codec_set_fs(rate, bits_cfg, ch);
 
     return ret;
 }
@@ -133,7 +137,8 @@ static void mp3_player_init_once(void)
     player_config.mute_fn = _audio_player_mute_fn;
     player_config.write_fn = _audio_player_write_fn;
     player_config.clk_set_fn = _audio_player_std_clock;
-    player_config.priority = 1;
+    player_config.priority = 6;
+    player_config.coreID = 1;
 
     ESP_ERROR_CHECK(audio_player_new(player_config));
     ESP_ERROR_CHECK(audio_player_callback_register(_audio_player_callback, NULL));
@@ -176,6 +181,9 @@ void app_music_close(void)
     lv_obj_del(music_page);
     music_page = NULL;
     music_list = NULL;
+    btn_play_pause = NULL;
+    label_play_pause = NULL;
+    volume_slider = NULL;
     lvgl_port_unlock();
 }
 
@@ -366,8 +374,8 @@ void music_ui(void)
 
     ui_button_style_init();// 初始化按键风格
 
-    /* 创建播放暂停控制按键 */
-    lv_obj_t *btn_play_pause = lv_btn_create(music_page);
+    /* 创建播放暂停控制按键（赋值给全局，供 ai_play/ai_pause/ai_resume 使用） */
+    btn_play_pause = lv_btn_create(music_page);
     lv_obj_align(btn_play_pause, LV_ALIGN_CENTER, 0, 40);
     lv_obj_set_size(btn_play_pause, 50, 50);
     lv_obj_set_style_radius(btn_play_pause, 25, LV_STATE_DEFAULT);
@@ -376,7 +384,7 @@ void music_ui(void)
     lv_obj_add_style(btn_play_pause, &ui_button_styles()->style_focus_no_outline, LV_STATE_FOCUS_KEY);
     lv_obj_add_style(btn_play_pause, &ui_button_styles()->style_focus_no_outline, LV_STATE_FOCUSED);
 
-    lv_obj_t *label_play_pause = lv_label_create(btn_play_pause);
+    label_play_pause = lv_label_create(btn_play_pause);
     lv_label_set_text_static(label_play_pause, LV_SYMBOL_PLAY);
     lv_obj_center(label_play_pause);
 
@@ -425,8 +433,8 @@ void music_ui(void)
     lv_obj_set_user_data(btn_play_next, (void *) label_next);
     lv_obj_add_event_cb(btn_play_next, btn_prev_next_cb, LV_EVENT_CLICKED, (void *) true);
 
-    /* 创建声音调节滑动条 */
-    lv_obj_t *volume_slider = lv_slider_create(music_page);
+    /* 创建声音调节滑动条（赋值给全局，供 ai_volume_up/down 使用） */
+    volume_slider = lv_slider_create(music_page);
     lv_obj_set_size(volume_slider, 200, 10);
     lv_obj_set_ext_click_area(volume_slider, 15);
     lv_obj_align(volume_slider, LV_ALIGN_BOTTOM_MID, 0, -20);
@@ -467,7 +475,164 @@ void music_ui(void)
 }
 
 
+// AI人动画
+LV_IMG_DECLARE(img_bilibili120);
 
+lv_obj_t *gif_start;
+
+// AI人出现在屏幕
+void ai_gui_in(void)
+{   
+    lvgl_port_lock(0);
+    gif_start = lv_gif_create(lv_scr_act());
+    lv_gif_set_src(gif_start, &img_bilibili120);
+    lv_obj_align(gif_start, LV_ALIGN_CENTER, 0, 0);
+    lvgl_port_unlock();
+}
+
+// AI人退出屏幕
+void ai_gui_out(void)
+{
+    lvgl_port_lock(0);
+    lv_obj_del(gif_start);
+    lvgl_port_unlock();
+}
+
+
+// AI播放音乐
+void ai_play(void)
+{
+    int index = file_iterator_get_index(file_iterator);
+    ESP_LOGI(TAG, "playing index '%d'", index);
+    play_index(index);
+    if (label_play_pause && btn_play_pause) {
+        lvgl_port_lock(0);
+        lv_label_set_text_static(label_play_pause, LV_SYMBOL_PAUSE); // 显示图标
+        lv_obj_add_state(btn_play_pause, LV_STATE_CHECKED); // 按键设置为选中状态
+        lvgl_port_unlock();
+    }
+}
+
+// AI暂停
+void ai_pause(void)
+{
+    audio_player_pause();
+    if (label_play_pause && btn_play_pause) {
+        lvgl_port_lock(0);
+        lv_label_set_text_static(label_play_pause, LV_SYMBOL_PLAY); // 显示图标
+        lv_obj_clear_state(btn_play_pause, LV_STATE_CHECKED); // 清除按键的选中状态
+        lvgl_port_unlock();
+    }
+}
+
+// AI继续
+void ai_resume(void)
+{
+    audio_player_resume();
+    if (label_play_pause && btn_play_pause) {
+        lvgl_port_lock(0);
+        lv_label_set_text_static(label_play_pause, LV_SYMBOL_PAUSE); // 显示图标
+        lv_obj_add_state(btn_play_pause, LV_STATE_CHECKED); // 按键设置为选中状态
+        lvgl_port_unlock();
+    }
+}
+
+// AI上一首
+void ai_prev_music(void)
+{
+    // 指向上一首音乐
+    file_iterator_prev(file_iterator);
+    // 修改当前的音乐名称
+    int index = file_iterator_get_index(file_iterator);
+    if (music_list) {
+        lvgl_port_lock(0);
+        lv_dropdown_set_selected(music_list, index);
+        lv_obj_t *label_title = (lv_obj_t *) music_list->user_data;
+        lv_label_set_text_static(label_title, file_iterator_get_name_from_index(file_iterator, index));
+        lvgl_port_unlock();
+    }
+    // 执行音乐事件
+    audio_player_state_t state = audio_player_get_state();
+    printf("prev_next_state=%d\n", state);
+    if (state == AUDIO_PLAYER_STATE_IDLE) { 
+        // Nothing to do
+    }else if (state == AUDIO_PLAYER_STATE_PAUSE){ // 如果当前正在暂停歌曲
+        ESP_LOGI(TAG, "playing index '%d'", index);
+        play_index(index);
+        audio_player_pause();
+    } else if (state == AUDIO_PLAYER_STATE_PLAYING) { // 如果当前正在播放歌曲
+        // 播放歌曲
+        ESP_LOGI(TAG, "playing index '%d'", index);
+        play_index(index);
+    }
+}
+
+// AI下一首
+void ai_next_music(void)
+{
+    // 指向上一首音乐
+    file_iterator_next(file_iterator);
+    // 修改当前的音乐名称
+    int index = file_iterator_get_index(file_iterator);
+    if (music_list) {
+        lvgl_port_lock(0);
+        lv_dropdown_set_selected(music_list, index);
+        lv_obj_t *label_title = (lv_obj_t *) music_list->user_data;
+        lv_label_set_text_static(label_title, file_iterator_get_name_from_index(file_iterator, index));
+        lvgl_port_unlock();
+    }
+    // 执行音乐事件
+    audio_player_state_t state = audio_player_get_state();
+    printf("prev_next_state=%d\n", state);
+    if (state == AUDIO_PLAYER_STATE_IDLE) { 
+        // Nothing to do
+    }else if (state == AUDIO_PLAYER_STATE_PAUSE){ // 如果当前正在暂停歌曲
+        ESP_LOGI(TAG, "playing index '%d'", index);
+        play_index(index);
+        audio_player_pause();
+    } else if (state == AUDIO_PLAYER_STATE_PLAYING) { // 如果当前正在播放歌曲
+        // 播放歌曲
+        ESP_LOGI(TAG, "playing index '%d'", index);
+        play_index(index);
+    }
+}
+
+// AI声音大一点
+void ai_volume_up(void)
+{
+    if (g_sys_volume < 100){
+        g_sys_volume = g_sys_volume + 5;
+        if (g_sys_volume > 100){
+            g_sys_volume = 100;
+        }
+        bsp_codec_volume_set(g_sys_volume, NULL); // 设置声音大小
+        if (volume_slider) {
+            lvgl_port_lock(0);
+            lv_slider_set_value(volume_slider, g_sys_volume, LV_ANIM_ON); // 设置slider
+            lvgl_port_unlock();
+        }
+    }
+    ESP_LOGI(TAG, "volume '%d'", g_sys_volume);
+}
+
+// AI声音小一点
+void ai_volume_down(void)
+{
+    if (g_sys_volume > 0){
+        if (g_sys_volume < 5){
+            g_sys_volume = 0;
+        }else{
+            g_sys_volume = g_sys_volume - 5;
+        }
+        bsp_codec_volume_set(g_sys_volume, NULL); // 设置声音大小
+        if (volume_slider) {
+            lvgl_port_lock(0);
+            lv_slider_set_value(volume_slider, g_sys_volume, LV_ANIM_ON); // 设置slider
+            lvgl_port_unlock();
+        }
+    }
+    ESP_LOGI(TAG, "volume '%d'", g_sys_volume);
+}
 
 
 

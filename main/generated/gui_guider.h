@@ -46,6 +46,8 @@ typedef struct
 	lv_obj_t *screen_2;
 	bool screen_2_del;
 	lv_obj_t *screen_2_img_1;
+	lv_obj_t *screen_2_img_2;
+	lv_obj_t *screen_2_label_1;
 	lv_obj_t *screen_3;
 	bool screen_3_del;
 	lv_obj_t *screen_3_img_1;

@@ -7,7 +7,8 @@ file(GLOB_RECURSE srcs
     font_alipuhui20.c
     app_ui.c
     app_ui_music.c
-
+    asr/*.c
+    img_bilibili120.c
     generated/*.c
     generated/guider_customer_fonts/*.c
     generated/guider_fonts/*.c
@@ -18,6 +19,7 @@ file(GLOB_RECURSE srcs
 set(include_dirs
     custom
     weather
+    asr
     generated
     generated/guider_customer_fonts
     generated/guider_fonts

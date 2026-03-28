@@ -1,0 +1,2 @@
+source E:/esp32-s3/esp32s3-lvgl-iot-dashboard/build/gdbinit/symbols
+source E:/esp32-s3/esp32s3-lvgl-iot-dashboard/build/gdbinit/connect

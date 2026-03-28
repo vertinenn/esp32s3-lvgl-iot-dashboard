@@ -13,3 +13,13 @@ void app_music_open(void);
 void app_music_close(void);
 bool app_music_is_open(void);
 
+void ai_gui_in(void);
+void ai_gui_out(void);
+
+void ai_play(void);
+void ai_pause(void);
+void ai_resume(void);
+void ai_prev_music(void);
+void ai_next_music(void);
+void ai_volume_up(void);
+void ai_volume_down(void);

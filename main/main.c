@@ -14,6 +14,7 @@
 #include "esp_vfs_fat.h"
 #include "app_ui.h"
 #include "nvs_flash.h"
+#include "app_sr.h"
 
 #include "esp_spiffs.h"
 
@@ -126,6 +127,9 @@ void app_main(void)
     lv_fs_sdcard_init(); // 注册自定义 SD 卡文件系统驱动，将 S: 映射到 /sdcard
     setup_ui(&guider_ui); // 初始化界面
     custom_init(&guider_ui); // 初始化自定义功能（如 WiFi / 音乐等）
+    
+    app_sr_init();  // 语音识别初始化   
+
     /* 下面5个demos 只打开1个运行 */
     // lv_demo_benchmark(); 
     // lv_demo_keypad_encoder(); 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <string.h>
 #include "math.h"
 #include "esp_err.h"
@@ -239,10 +240,57 @@ void app_camera_lcd(void);
 /*********************    音频 ↓   *************************/
 #define VOLUME_DEFAULT    60
 
-#define CODEC_DEFAULT_SAMPLE_RATE          (48000)
-#define CODEC_DEFAULT_BIT_WIDTH            (16)
-#define CODEC_DEFAULT_ADC_VOLUME           (24.0)
+/*
+ * ESP-SR / 模型侧：送入 AFE 的仍是「每路 16 kHz、16 bit」量级的 PCM（见 `bsp_get_feed_data` 解出的 int16）。
+ *
+ * ES7210 在实战派一类板子上常开 **TDM/多槽**：同样 I2S 帧里要塞 **多于 2 路** ADC 数据。若仿照普通
+ * I2S **双声道 16 kHz、16 bit** 去理解总线，却未按多槽加倍位时钟/位宽，**每路麦克风的等效采样率会被摊薄**，
+ * 官方说明里会出现「看起来还是 16 kHz、16 bit，实际只有约 **8 kHz** 有效」的现象。
+ *
+ * 官方 speech 例程因此用 **帧采样率仍填 16000**，但 I2S 数据 **CODEC_DEFAULT_BIT_WIDTH=32**、
+ * **CODEC_DEFAULT_CHANNEL=2**（双槽各载多路 16 bit），与 `12-speech_recognition` 一致；读物理解时不要把它当成
+ * 「要把 AFE 的 sample_rate 改成 32000」——若文档写 32 kHz 多指 **位宽/时钟预算** 或别种 TDM 配法，改 32 kHz
+ * 给 AFE 须另加重采样，否则与 16 kHz 训练模型不一致。
+ */
+#define CODEC_DEFAULT_SAMPLE_RATE          (16000)
+#define CODEC_DEFAULT_BIT_WIDTH            (32)
+/* ES7210 输入增益(dB)，过低则唤醒词难触发；过高易削顶，可 30~42 间微调 */
+#define CODEC_DEFAULT_ADC_VOLUME           (38.0)
 #define CODEC_DEFAULT_CHANNEL              (2)
+
+/**
+ * ES7210 麦克风选择：与官方 speech_recognition（ESP-S3-Korvo / 实战派等）一致为四路 + 片内 TDM，
+ * MIC3 常接 ES8311 输出作 AEC 参考。若你的板子只有双麦，可改为仅 (ES7120_SEL_MIC1 | ES7120_SEL_MIC2)
+ * 并在 app_sr 里把 AFE 配成 2 路、关 AEC。
+ */
+#ifndef BSP_ES7210_MIC_SELECTED
+#define BSP_ES7210_MIC_SELECTED \
+    (ES7120_SEL_MIC1 | ES7120_SEL_MIC2 | ES7120_SEL_MIC3 | ES7120_SEL_MIC4)
+#endif
+
+/** ES7210 `esp_codec_dev_read` 交错 int16 路数（与官方 12-speech_recognition 一致） */
+#define ADC_I2S_CHANNEL                    (4)
+
+/**
+ * 送进 AFE `feed()` 的 `pcm_config.total_ch_num`，须与 `bsp_get_feed_data` 压实路数一致：
+ * - 3（默认）：2×mic + 1×ref，与官方 12-speech_recognition / ESP-S3-Korvo / 多数 ES7210+ES8311 实战派一致，`DET_MODE_2CH_90`
+ * - 2：仅当你确认硬件是 1×拾音 + 1×回采、且日志里 |mic| 与 |ref| 量级合理时用；否则易出现 |ref|>>|mic|、AEC 把语音抵消、MultiNet vol 很低
+ */
+#ifndef BSP_AFE_PCM_TOTAL_CH
+#define BSP_AFE_PCM_TOTAL_CH               (3)
+#endif
+
+/** 仅 BSP_AFE_PCM_TOTAL_CH==2 时使用：4×int16 里 mic、ref 槽位；若安静时 |ref| 远大于 |mic| 可尝试 mic=0 ref=1 对调 */
+#ifndef BSP_AFE_RAW_MIC_IDX
+#define BSP_AFE_RAW_MIC_IDX                (1)
+#endif
+#ifndef BSP_AFE_RAW_REF_IDX
+#define BSP_AFE_RAW_REF_IDX                (0)
+#endif
+
+#if (BSP_AFE_PCM_TOTAL_CH != 2) && (BSP_AFE_PCM_TOTAL_CH != 3)
+#error "BSP_AFE_PCM_TOTAL_CH must be 2 or 3"
+#endif
 
 #define BSP_I2S_NUM                  I2S_NUM_1
 
@@ -256,6 +304,14 @@ void app_camera_lcd(void);
 esp_err_t bsp_codec_init(void);
 esp_err_t bsp_i2s_write(void *audio_buffer, size_t len, size_t *bytes_written, uint32_t timeout_ms);
 esp_err_t bsp_codec_set_fs(uint32_t rate, uint32_t bits_cfg, i2s_slot_mode_t ch);
+
+/** 返回 ADC_I2S_CHANNEL（4） */
+int bsp_get_feed_channel(void);
+/**
+ * 读入 4×int16；若非 raw，原位压成 BSP_AFE_PCM_TOTAL_CH 路：2 路为 mic、ref；3 路同官方 demo（mic、mic、ref）。
+ * buffer_len = get_feed_chunksize * sizeof(int16) * ADC_I2S_CHANNEL。
+ */
+esp_err_t bsp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer_len);
 esp_err_t bsp_codec_mute_set(bool enable);
 esp_err_t bsp_codec_volume_set(int volume, int *volume_set);
 
