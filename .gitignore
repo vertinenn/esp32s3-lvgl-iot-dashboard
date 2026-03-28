@@ -1,0 +1,5 @@
+# clangd / IDE index caches
+.cache/
+
+# ESP-IDF build output
+build/
